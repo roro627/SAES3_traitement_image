@@ -1,4 +1,7 @@
 from SoftwareView import SoftwareView
+from SoftwareModel import SoftwareModel
+
+from PyQt6.QtWidgets import *
 from PyQt6.QtWidgets import QApplication
 import sys, os
 
@@ -9,22 +12,22 @@ import sys, os
 class SoftwareController():
     def __init__(self):
         
-        # Initialiser les vues et les modèles
+        # Initialisation de la vue et du modèle
         self.view = SoftwareView()
+        self.model = SoftwareModel()
 
         # Connecter les signaux de la vue aux slots du contrôleur
 
         # -------------- Signaux de View -------------- #
-        self.view.imageButtonClicked.connect(self.test)
+        self.view.imageButtonClicked.connect(self.openImage)
 
     # --- Méthodes pour View --- #
 
-    def test(self, fname):
-        print('test')
-        var = os.path.dirname(sys.path[0]) + '\\' + fname
-        print(var)
-        self.view.image.setPixmap(var)
-
+    def openImage(self, fpath):
+        self.model.setImagePath(fpath)
+        data = self.model.openImage()
+        self.view.image.setPixmap(data)
+        self.view.updateInfoTable(self.model.ImageHead)
 
     def show(self):
         """
