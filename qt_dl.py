@@ -4,8 +4,10 @@ from PyQt6.QtCore import QSize, QThread, pyqtSignal, QTimer
 from download_file import *
 from PyQt6.QtGui import QIcon
 
-# Thread pour la recherche d'observations
 class SearchThread(QThread):
+    """
+    Thread pour la recherche d'observations.
+    """
     observations_ready = pyqtSignal(object)
 
     def __init__(self, object_name, radius):
@@ -17,8 +19,10 @@ class SearchThread(QThread):
         observations = get_observations(self.object_name, self.radius)
         self.observations_ready.emit(observations)
 
-# Thread pour le téléchargement des fichiers
 class DownloadThread(QThread):
+    """
+    Thread pour le téléchargement des fichiers.
+    """
     download_complete = pyqtSignal(object)
 
     def __init__(self, final_product, output_directory):
@@ -30,8 +34,10 @@ class DownloadThread(QThread):
         manifest = download_observations(self.final_product, self.output_directory)
         self.download_complete.emit(manifest)
 
-# Fenêtre principale de l'application
 class MainWindow(QWidget):
+    """
+    Fenêtre principale de l'application.
+    """
     def __init__(self):
         super().__init__()
 
@@ -117,8 +123,10 @@ class MainWindow(QWidget):
 
         self.adjust_window_size()
 
-    # Démarrer la recherche
     def start_search(self):
+        """
+        Démarrer la recherche.
+        """
         object_name = self.object_input.text()
         radius = self.radius_input.text()
         
@@ -138,13 +146,17 @@ class MainWindow(QWidget):
         self.search_thread.observations_ready.connect(self.on_observations_ready)
         self.search_thread.start()
 
-    # Mettre à jour le texte du bouton de recherche
     def update_search_button_text(self):
+        """
+        Mettre à jour le texte du bouton de recherche.
+        """
         self.search_button.setText(self.animation_texts[self.animation_index])
         self.animation_index = (self.animation_index + 1) % len(self.animation_texts)
 
-    # Quand les observations sont prêtes
     def on_observations_ready(self, observations):
+        """
+        Quand les observations sont prêtes.
+        """
         # Arrêter l'animation
         self.animation_timer.stop()
         self.search_button.setText("Rechercher")
@@ -160,8 +172,10 @@ class MainWindow(QWidget):
             self.mission_combo.show()
             self.adjust_window_size()
 
-    # Sélectionner une mission
     def select_mission(self, mission):
+        """
+        Sélectionner une mission.
+        """
         self.observations_mission = filter_by_mission(self.observations, mission)
         if self.observations_mission is None:
             return
@@ -175,8 +189,10 @@ class MainWindow(QWidget):
             self.program_combo.show()
             self.adjust_window_size()
 
-    # Sélectionner un programme
     def select_program(self, program):
+        """
+        Sélectionner un programme.
+        """
         if program == "Sélectionner un programme":
             return
 
@@ -192,8 +208,10 @@ class MainWindow(QWidget):
             self.celestial_combo.show()
             self.adjust_window_size()
 
-    # Sélectionner un objet céleste
     def select_celestial_object(self, celestial_object):
+        """
+        Sélectionner un objet céleste.
+        """
         if celestial_object == "Sélectionner un objet celeste":
             return
         
@@ -223,13 +241,17 @@ class MainWindow(QWidget):
             self.result_label.show()
             self.adjust_window_size()
 
-    # Mettre à jour le texte du label de résultat
     def update_result_label_text(self):
+        """
+        Mettre à jour le texte du label de résultat.
+        """
         self.result_label.setText(self.result_label_texts[self.result_label_index])
         self.result_label_index = (self.result_label_index + 1) % len(self.result_label_texts)
 
-    # Quand le téléchargement est terminé
     def on_download_complete(self, manifest):
+        """
+        Quand le téléchargement est terminé.
+        """
         # Arrêter l'animation
         self.result_label_timer.stop()
 
@@ -240,8 +262,10 @@ class MainWindow(QWidget):
             self.result_label.setText("Erreur lors du téléchargement. Essayer un autre produit.")
         self.adjust_window_size()
 
-    # Ajuster la taille de la fenêtre
     def adjust_window_size(self):
+        """
+        Ajuster la taille de la fenêtre.
+        """
         new_value = self.current_height + self.value_to_add
         if new_value > self.maxsize:
             new_value = self.maxsize
