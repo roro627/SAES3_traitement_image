@@ -24,6 +24,13 @@ class SoftwareController():
     # --- Méthodes pour View --- #
 
     def openImage(self, fpath):
+        """
+        Cette méthode est utilisé lors de l'ouverture d'une image FITS.
+        Quand un fichier FITS est ouvert celui-ci est affiché ainsi que l'ensemble de ses informations situées dans l'entête.
+        Paramètres : self (SoftwareController) : L'instance de la classe.
+                    fpath (str) : Chemin vers l'image FITS.
+        Return : None
+        """
         self.model.setImagePath(fpath)
         data = self.model.openImage()
         self.view.image.setPixmap(data)
@@ -33,7 +40,7 @@ class SoftwareController():
         """
         Cette méthode permet d'afficher la vue.
         
-        Paramètres : self : L'instance de la classe.
+        Paramètres : self (SoftwareController) : L'instance de la classe.
         Return : None
         """
         self.view.showMaximized()

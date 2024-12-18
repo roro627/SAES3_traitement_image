@@ -19,7 +19,6 @@ class ImageView(QGraphicsView):
         self.grayData = ImageView.emptyImageGrayData()
         self.scene.addText("Aucune image n'est actuellement ouverte.")
         self.setScene(self.scene)
-        self.setWindowTitle("QGraphicsView")
 
     def setPixmap(self, grayData :  np.ndarray):
         """
@@ -30,6 +29,8 @@ class ImageView(QGraphicsView):
         """
         height, width = grayData.shape
         bytesPerLine = width
+
+        self.scene.clear()
 
         # Normalisation
         grayData[grayData > 1.0] = 1.0
