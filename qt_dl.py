@@ -2,59 +2,73 @@ import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QComboBox, QPushButton, QLineEdit
 from PyQt6.QtCore import QSize, QThread, pyqtSignal, QTimer
 from download_file import *
+from PyQt6.QtGui import QIcon
 
-"""
-TODO
-- Lancer dans un thread le download et annimer
-- Ajouter un logo
-"""
-
+# Thread pour la recherche d'observations
 class SearchThread(QThread):
     observations_ready = pyqtSignal(object)
 
-    def __init__(self, objet, rayon):
+    def __init__(self, object_name, radius):
         super().__init__()
-        self.objet = objet
-        self.rayon = rayon
+        self.object_name = object_name
+        self.radius = radius
 
     def run(self):
-        observations = obtenir_observations(self.objet, self.rayon)
+        observations = get_observations(self.object_name, self.radius)
         self.observations_ready.emit(observations)
 
+# Thread pour le téléchargement des fichiers
+class DownloadThread(QThread):
+    download_complete = pyqtSignal(object)
+
+    def __init__(self, final_product, output_directory):
+        super().__init__()
+        self.final_product = final_product
+        self.output_directory = output_directory
+
+    def run(self):
+        manifest = download_observations(self.final_product, self.output_directory)
+        self.download_complete.emit(manifest)
+
+# Fenêtre principale de l'application
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("Downloader App")
         self.setMinimumSize(QSize(500, 50))
+        self.setWindowIcon(QIcon("icon_downloader_app.ico"))
         
-        self.value_to_add = 70
+        self.value_to_add = 35
         self.current_height = self.value_to_add
         self.maxsize = 500
-
+        
+        self.output_directory = "downloads"
+        self.ideal_Mo_size = 50
+        
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
 
         # Champs de saisie pour l'objet et le rayon
         self.layout.addWidget(QLabel("Entrez le nom de l'objet (ex: M31):"))
-        self.objet_input = QLineEdit()
-        self.layout.addWidget(self.objet_input)
+        self.object_input = QLineEdit()
+        self.layout.addWidget(self.object_input)
 
         self.layout.addWidget(QLabel("Entrez le rayon de recherche en degrés (ex: 0.1):"))
-        self.rayon_input = QLineEdit()
-        self.layout.addWidget(self.rayon_input)
+        self.radius_input = QLineEdit()
+        self.layout.addWidget(self.radius_input)
 
-        # Bouton pour lancer la recherche
+        # Bouton pour démarrer la recherche
         self.search_button = QPushButton("Rechercher")
         self.search_button.clicked.connect(self.start_search)
         self.layout.addWidget(self.search_button)
         
-        # Labels si les QLineEdit sont vides
+        # Label pour les champs manquants
         self.missing_input_label = QLabel("Veuillez remplir les champs ci-dessus.")
         self.layout.addWidget(self.missing_input_label)
         self.missing_input_label.hide()
 
-        # Créer tous les widgets au début, mais les masquer
+        # Création de tous les widgets au début, mais les cacher
         self.mission_label = QLabel("Sélectionner une mission:")
         self.layout.addWidget(self.mission_label)
         self.mission_label.hide()
@@ -91,42 +105,54 @@ class MainWindow(QWidget):
         self.animation_texts = ["Recherche en cours", "Recherche en cours .", "Recherche en cours ..", "Recherche en cours ..."]
         self.animation_index = 0
 
+        self.result_label_timer = QTimer()
+        self.result_label_timer.timeout.connect(self.update_result_label_text)
+        self.result_label_texts = [
+            "Fichier FITS trouvé, téléchargement en cours",
+            "Fichier FITS trouvé, téléchargement en cours .",
+            "Fichier FITS trouvé, téléchargement en cours ..",
+            "Fichier FITS trouvé, téléchargement en cours ..."
+        ]
+        self.result_label_index = 0
+
         self.adjust_window_size()
 
+    # Démarrer la recherche
     def start_search(self):
-        objet = self.objet_input.text()
-        rayon = self.rayon_input.text()
+        object_name = self.object_input.text()
+        radius = self.radius_input.text()
         
-        # verification des champs
-        if not objet or not rayon:
+        # Vérifier les champs
+        if not object_name or not radius:
             self.missing_input_label.show()
             return
         self.missing_input_label.hide()
         
-        rayon = float(rayon)
+        radius = float(radius)
 
-        # Start the animation
+        # Démarrer l'animation
         self.animation_index = 0
         self.animation_timer.start(500)
-        # Start the thread
-        self.search_thread = SearchThread(objet, rayon)
+        # Démarrer le thread de recherche
+        self.search_thread = SearchThread(object_name, radius)
         self.search_thread.observations_ready.connect(self.on_observations_ready)
         self.search_thread.start()
 
+    # Mettre à jour le texte du bouton de recherche
     def update_search_button_text(self):
         self.search_button.setText(self.animation_texts[self.animation_index])
         self.animation_index = (self.animation_index + 1) % len(self.animation_texts)
 
+    # Quand les observations sont prêtes
     def on_observations_ready(self, observations):
-        # Stop the animation
+        # Arrêter l'animation
         self.animation_timer.stop()
         self.search_button.setText("Rechercher")
         self.observations = observations
         if self.observations is None:
-            
             return
 
-        self.missions = obtenir_missions(self.observations)
+        self.missions = ["Sélectionner une mission"] + get_missions(self.observations)
         if self.missions:
             self.mission_combo.clear()
             self.mission_combo.addItems(self.missions)
@@ -134,64 +160,96 @@ class MainWindow(QWidget):
             self.mission_combo.show()
             self.adjust_window_size()
 
+    # Sélectionner une mission
     def select_mission(self, mission):
-        self.observations_mission = filtrer_par_mission(self.observations, mission)
+        self.observations_mission = filter_by_mission(self.observations, mission)
         if self.observations_mission is None:
             return
 
-        self.programmes = obtenir_programmes(self.observations_mission)
-        if self.programmes:
+        self.programs = get_programs(self.observations_mission)
+        if self.programs:
             self.program_combo.clear()
-            programme_items = ["Sélectionner un programme"] + [str(programme) for programme in self.programmes]
-            self.program_combo.addItems(programme_items)
+            program_items = ["Sélectionner un programme"] + [str(program) for program in self.programs]
+            self.program_combo.addItems(program_items)
             self.program_label.show()
             self.program_combo.show()
             self.adjust_window_size()
 
-    def select_program(self, programme):
-        if programme == "Sélectionner un programme":
+    # Sélectionner un programme
+    def select_program(self, program):
+        if program == "Sélectionner un programme":
             return
 
-        self.observations_programme = filtrer_par_programme(self.observations_mission, programme)
-        if self.observations_programme is None:
+        self.observations_program = filter_by_program(self.observations_mission, program)
+        if self.observations_program is None:
             return
 
-        self.objets_celestes = obtenir_objets_celestes(self.observations_programme)
-        if self.objets_celestes:
+        self.celestial_objects = ["Sélectionner un objet celeste"] + get_celestial_objects(self.observations_program)
+        if self.celestial_objects:
             self.celestial_combo.clear()
-            self.celestial_combo.addItems(self.objets_celestes)
+            self.celestial_combo.addItems(self.celestial_objects)
             self.celestial_label.show()
             self.celestial_combo.show()
             self.adjust_window_size()
 
-    def select_celestial_object(self, objet_celeste):
-        self.observations_objet = filtrer_par_objet_celeste(self.observations_programme, objet_celeste)
-        if self.observations_objet is None:
+    # Sélectionner un objet céleste
+    def select_celestial_object(self, celestial_object):
+        if celestial_object == "Sélectionner un objet celeste":
+            return
+        
+        self.observations_object = filter_by_celestial_object(self.observations_program, celestial_object)
+        if self.observations_object is None:
+            self.result_label.setText("Aucune observation trouvée.")
+            self.result_label.show()
+            self.adjust_window_size()
             return
 
-        self.produit_final = obtenir_produit_final(self.observations_objet)
-        if self.produit_final is not None:
-            self.result_label.setText("Fichier FITS trouvé, téléchargement en cours...")
+        self.final_product = get_final_product(self.observations_object, self.ideal_Mo_size)
+        if self.final_product is not None:
+            self.result_label.setText("Fichier FITS trouvé, téléchargement en cours")
+            self.result_label.show()
             self.adjust_window_size()
-            # Télécharger le produit
-            output_dir = "downloads"
-            telecharger_observations(self.produit_final, output_dir)
-            self.result_label.setText("Fichier téléchargé avec succès.")
-            self.adjust_window_size()
-        else:
-            self.result_label.setText("Aucune observation trouvée.")
-        self.result_label.show()
 
+            # Démarrer l'animation
+            self.result_label_index = 0
+            self.result_label_timer.start(1000)
+
+            # Démarrer le thread de téléchargement
+            self.download_thread = DownloadThread(self.final_product, self.output_directory)
+            self.download_thread.download_complete.connect(self.on_download_complete)
+            self.download_thread.start()
+        else:
+            self.result_label.setText("Aucun produit trouvé.")
+            self.result_label.show()
+            self.adjust_window_size()
+
+    # Mettre à jour le texte du label de résultat
+    def update_result_label_text(self):
+        self.result_label.setText(self.result_label_texts[self.result_label_index])
+        self.result_label_index = (self.result_label_index + 1) % len(self.result_label_texts)
+
+    # Quand le téléchargement est terminé
+    def on_download_complete(self, manifest):
+        # Arrêter l'animation
+        self.result_label_timer.stop()
+
+        # Vérifie qu'il n'y a pas eu d'erreur
+        if manifest["Status"][0] == "COMPLETE":
+            self.result_label.setText("Fichier téléchargé avec succès.")
+        else:
+            self.result_label.setText("Erreur lors du téléchargement. Essayer un autre produit.")
+        self.adjust_window_size()
+
+    # Ajuster la taille de la fenêtre
     def adjust_window_size(self):
         new_value = self.current_height + self.value_to_add
         if new_value > self.maxsize:
             new_value = self.maxsize
-        else :
+        else:
             self.current_height += new_value
         self.setMinimumSize(QSize(500, self.current_height))
 
 if __name__ == "__main__":
-    # Lancement de l'application Qt
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
