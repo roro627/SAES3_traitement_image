@@ -1,153 +1,156 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QComboBox, QPushButton, QLineEdit
 from PyQt6.QtCore import QSize
-from astroquery.mast import Observations
-from astroquery.mast import Mast
-from astropy.coordinates import SkyCoord
-import astropy.units as units
-import os
+from download_file import *
 
-def rechercher_observations(objet, rayon):
-    """
-    Recherche les observations disponibles dans le MAST pour un objet donné,
-    filtre les produits pour ne garder que les fichiers FITS,
-    et retourne les produits filtrés.
+"""
+TODO
+- Lancer dans un thread le download et annimer
+- Animation pour attendre obtenir_observations()
+- Ajouter un logo
+"""
 
-    Paramètres :
-    - objet (str) : Le nom de l'objet (par exemple 'M31').
-    - rayon (float) : Rayon de recherche autour de l'objet en degrés.
-    - mission (str) : Filtrer par mission (par exemple, 'HST').
-    - obs_type (str) : Filtrer par type d'observation (par exemple, 'image', 'spectrum').
-    - program (str) : Filtrer par programme d'observation.
-    - celestial_object (str) : Filtrer par objet céleste.
-
-    Retourne :
-    - Une table des produits filtrés (Astropy Table).
-    """
-    # Convertir le nom de l'objet en coordonnées
-    coord = SkyCoord.from_name(objet)
-    print(f"Coordonnées de {objet} : {coord}")
-
-    # Rechercher des observations dans le rayon donné
-    observations = Observations.query_region(coord, radius=rayon * units.deg)
-    print(f"Nombre d'observations trouvées : {len(observations)}")
-
-    if len(observations) == 0:
-        print("Aucune observation trouvée.")
-        yield None
-
-    # renvoyer toutes les missions trouvées (1 seule fois par mission)
-    unique_collections = []
-    for collection in observations['obs_collection']:
-        if collection not in unique_collections:
-            unique_collections.append(collection)
-    mission = yield unique_collections
-
-    # Appliquer les filtres supplémentaires sur les observations
-    print(f"Applique le filtre de mission : {mission}")
-    observations = observations[observations['obs_collection'] == mission]
-    if len(observations) == 0:
-        print("Aucune observation correspondante aux filtres spécifiés.")
-        yield None
-    
-    # renvoyer toutes les types d'observations trouvées (1 seule fois par type)
-    unique_types = []
-    for obs_type in observations['dataproduct_type']:
-        if obs_type not in unique_types:
-            unique_types.append(obs_type)
-    obs_type = yield unique_types
-    
-    if obs_type:
-        print(f"Applique le filtre de type d'observation : {obs_type}")
-        observations = observations[observations['dataproduct_type'] == obs_type]
-    if len(observations) == 0:
-        print("Aucune observation correspondante aux filtres spécifiés.")
-        yield None
-        
-    # renvoyer tous les programmes trouvés (1 seule fois par programme)
-    unique_programs = []
-    for program in observations['proposal_id']:
-        if program not in unique_programs:
-            unique_programs.append(program)
-    program = yield unique_programs
-    
-    if program:
-        print(f"Applique le filtre de programme d'observation : {program}")
-        observations = observations[observations['proposal_id'] == program]
-    
-    if len(observations) == 0:
-        print("Aucune observation correspondante aux filtres spécifiés.")
-        yield None
-        
-    # renvoyer tous les objets célestes trouvés (1 seule fois par objet)
-    unique_celestial_objects = []
-    for celestial_object in observations['target_name']:
-        if celestial_object not in unique_celestial_objects:
-            unique_celestial_objects.append(celestial_object)
-    celestial_object = yield unique_celestial_objects
-        
-    if celestial_object:
-        print(f"Applique le filtre d'objet céleste : {celestial_object}")
-        observations = observations[observations['target_name'] == celestial_object]
-
-    
-
-    # Filtrer pour ne garder que les fichiers FITS
-    observations = observations[[ ".fits" in url for url in observations['dataURL'] ]]
-
-    print(f"Nombre d'observations après filtrage : {len(observations)}")
-
-    if len(observations) == 0:
-        print("Aucune observation correspondante aux filtres spécifiés.")
-        return None
-    
-    # Obtenir les produits associés aux observations filtrées
-    products = Observations.get_product_list(observations)
-    print(f"Nombre total de produits associés : {len(products)}")
-    
-    # Filtrer pour ne garder que les fichiers FITS
-    products = products[[ ".fits" in url for url in products['dataURI'] ]]
-    print(f"Nombre de produits FITS : {len(products)}")
-    
-
-    # Garder le fichier avec la taille la plus proche de 50Mo
-    target_size = 50000000
-    sizes = [product['size'] for product in products]
-    
-    def absolute_difference(x):
-        return abs(x - target_size)
-    
-    closest_size = min(sizes, key=absolute_difference)
-    print(f"Taille la plus proche de 50Mo : {closest_size}")
-    
-    # Appliquer le filtre de taille manuellement
-    products_filtered_size = products[
-        (products['size'] == closest_size)
-    ]
-
-    if len(products_filtered_size) == 0:
-        print("Aucun fichier FITS trouvé après filtrage.")
-        return None
-
-    # renvoyé que le dernier produit
-    return products_filtered_size[-1]
-
-
-class MainWindow(QMainWindow):
+class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("Downloader App")
-        self.setGeometry(100, 100, 800, 600)
+        self.setMinimumSize(QSize(500, 50))
+        
+        self.value_to_add = 70
+        self.current_height = self.value_to_add
+        self.maxsize = 500
 
+        self.layout = QVBoxLayout()
+        self.setLayout(self.layout)
+
+        # Champs de saisie pour l'objet et le rayon
+        self.layout.addWidget(QLabel("Entrez le nom de l'objet (ex: M31):"))
+        self.objet_input = QLineEdit()
+        self.layout.addWidget(self.objet_input)
+
+        self.layout.addWidget(QLabel("Entrez le rayon de recherche en degrés (ex: 0.1):"))
+        self.rayon_input = QLineEdit()
+        self.layout.addWidget(self.rayon_input)
+
+        # Bouton pour lancer la recherche
+        self.search_button = QPushButton("Rechercher")
+        self.search_button.clicked.connect(self.start_search)
+        self.layout.addWidget(self.search_button)
+
+        # Créer tous les widgets au début, mais les masquer
+        self.mission_label = QLabel("Sélectionner une mission:")
+        self.layout.addWidget(self.mission_label)
+        self.mission_label.hide()
+
+        self.mission_combo = QComboBox()
+        self.mission_combo.currentTextChanged.connect(self.select_mission)
+        self.layout.addWidget(self.mission_combo)
+        self.mission_combo.hide()
+
+        self.program_label = QLabel("Sélectionner un programme:")
+        self.layout.addWidget(self.program_label)
+        self.program_label.hide()
+
+        self.program_combo = QComboBox()
+        self.program_combo.currentTextChanged.connect(self.select_program)
+        self.layout.addWidget(self.program_combo)
+        self.program_combo.hide()
+
+        self.celestial_label = QLabel("Sélectionner un objet céleste:")
+        self.layout.addWidget(self.celestial_label)
+        self.celestial_label.hide()
+
+        self.celestial_combo = QComboBox()
+        self.celestial_combo.currentTextChanged.connect(self.select_celestial_object)
+        self.layout.addWidget(self.celestial_combo)
+        self.celestial_combo.hide()
+
+        self.adjust_window_size()
+
+    def start_search(self):
+        objet = self.objet_input.text()
+        rayon = self.rayon_input.text()
+        
+        # verification des champs
+        if not objet or not rayon:
+            self.layout.addWidget(QLabel("Veuillez remplir tous les champs."))
+            self.adjust_window_size()
+            return
+        
+        rayon = float(rayon)
+        
+        self.observations = obtenir_observations(objet, rayon)
+        if self.observations is None:
+            return
+
+        self.missions = obtenir_missions(self.observations)
+        if self.missions:
+            self.mission_combo.clear()
+            self.mission_combo.addItems(self.missions)
+            self.mission_label.show()
+            self.mission_combo.show()
+            self.adjust_window_size()
+
+    def select_mission(self, mission):
+        self.observations_mission = filtrer_par_mission(self.observations, mission)
+        if self.observations_mission is None:
+            return
+
+        self.programmes = obtenir_programmes(self.observations_mission)
+        if self.programmes:
+            self.program_combo.clear()
+            programme_items = ["Sélectionner un programme"] + [str(programme) for programme in self.programmes]
+            self.program_combo.addItems(programme_items)
+            self.program_label.show()
+            self.program_combo.show()
+            self.adjust_window_size()
+
+    def select_program(self, programme):
+        if programme == "Sélectionner un programme":
+            return
+
+        self.observations_programme = filtrer_par_programme(self.observations_mission, programme)
+        if self.observations_programme is None:
+            return
+
+        self.objets_celestes = obtenir_objets_celestes(self.observations_programme)
+        if self.objets_celestes:
+            self.celestial_combo.clear()
+            self.celestial_combo.addItems(self.objets_celestes)
+            self.celestial_label.show()
+            self.celestial_combo.show()
+            self.adjust_window_size()
+
+    def select_celestial_object(self, objet_celeste):
+        self.observations_objet = filtrer_par_objet_celeste(self.observations_programme, objet_celeste)
+        if self.observations_objet is None:
+            return
+
+        self.produit_final = obtenir_produit_final(self.observations_objet)
+        if self.produit_final is not None:
+            self.layout.addWidget(QLabel("Fichier FITS trouvé, téléchargement en cours..."))
+            self.adjust_window_size()
+            # Télécharger le produit
+            dossier_sortie = "downloads"
+            telecharger_observations(self.produit_final, dossier_sortie)
+            self.layout.addWidget(QLabel("Téléchargement terminé."))
+            self.adjust_window_size()
+        else:
+            self.layout.addWidget(QLabel("Aucun résultat final disponible."))
+            self.adjust_window_size()
+
+    def adjust_window_size(self):
+        new_value = self.current_height + self.value_to_add
+        if new_value > self.maxsize:
+            new_value = self.maxsize
+        else :
+            self.current_height += new_value
+        self.setMinimumSize(QSize(500, self.current_height))
 
 if __name__ == "__main__":
-    # ne pas oublier de gérer les none
-    res_filters = rechercher_observations("M31", 0.1)
-    print(next(res_filters))
-    print(res_filters.send("HST"))
-    
-    # app = QApplication(sys.argv)
-    # window = MainWindow()
-    # window.show()
-    # sys.exit(app.exec())
+    # Lancement de l'application Qt
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
