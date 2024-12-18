@@ -1,14 +1,25 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QComboBox, QPushButton, QLineEdit
-from PyQt6.QtCore import QSize
+from PyQt6.QtCore import QSize, QThread, pyqtSignal, QTimer
 from download_file import *
 
 """
 TODO
 - Lancer dans un thread le download et annimer
-- Animation pour attendre obtenir_observations()
 - Ajouter un logo
 """
+
+class SearchThread(QThread):
+    observations_ready = pyqtSignal(object)
+
+    def __init__(self, objet, rayon):
+        super().__init__()
+        self.objet = objet
+        self.rayon = rayon
+
+    def run(self):
+        observations = obtenir_observations(self.objet, self.rayon)
+        self.observations_ready.emit(observations)
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -37,6 +48,11 @@ class MainWindow(QWidget):
         self.search_button = QPushButton("Rechercher")
         self.search_button.clicked.connect(self.start_search)
         self.layout.addWidget(self.search_button)
+        
+        # Labels si les QLineEdit sont vides
+        self.missing_input_label = QLabel("Veuillez remplir les champs ci-dessus.")
+        self.layout.addWidget(self.missing_input_label)
+        self.missing_input_label.hide()
 
         # Créer tous les widgets au début, mais les masquer
         self.mission_label = QLabel("Sélectionner une mission:")
@@ -65,6 +81,15 @@ class MainWindow(QWidget):
         self.celestial_combo.currentTextChanged.connect(self.select_celestial_object)
         self.layout.addWidget(self.celestial_combo)
         self.celestial_combo.hide()
+        
+        self.result_label = QLabel("")
+        self.layout.addWidget(self.result_label)
+        self.result_label.hide()
+
+        self.animation_timer = QTimer()
+        self.animation_timer.timeout.connect(self.update_search_button_text)
+        self.animation_texts = ["Recherche en cours", "Recherche en cours .", "Recherche en cours ..", "Recherche en cours ..."]
+        self.animation_index = 0
 
         self.adjust_window_size()
 
@@ -74,14 +99,31 @@ class MainWindow(QWidget):
         
         # verification des champs
         if not objet or not rayon:
-            self.layout.addWidget(QLabel("Veuillez remplir tous les champs."))
-            self.adjust_window_size()
+            self.missing_input_label.show()
             return
+        self.missing_input_label.hide()
         
         rayon = float(rayon)
-        
-        self.observations = obtenir_observations(objet, rayon)
+
+        # Start the animation
+        self.animation_index = 0
+        self.animation_timer.start(500)
+        # Start the thread
+        self.search_thread = SearchThread(objet, rayon)
+        self.search_thread.observations_ready.connect(self.on_observations_ready)
+        self.search_thread.start()
+
+    def update_search_button_text(self):
+        self.search_button.setText(self.animation_texts[self.animation_index])
+        self.animation_index = (self.animation_index + 1) % len(self.animation_texts)
+
+    def on_observations_ready(self, observations):
+        # Stop the animation
+        self.animation_timer.stop()
+        self.search_button.setText("Rechercher")
+        self.observations = observations
         if self.observations is None:
+            
             return
 
         self.missions = obtenir_missions(self.observations)
@@ -129,16 +171,16 @@ class MainWindow(QWidget):
 
         self.produit_final = obtenir_produit_final(self.observations_objet)
         if self.produit_final is not None:
-            self.layout.addWidget(QLabel("Fichier FITS trouvé, téléchargement en cours..."))
+            self.result_label.setText("Fichier FITS trouvé, téléchargement en cours...")
             self.adjust_window_size()
             # Télécharger le produit
-            dossier_sortie = "downloads"
-            telecharger_observations(self.produit_final, dossier_sortie)
-            self.layout.addWidget(QLabel("Téléchargement terminé."))
+            output_dir = "downloads"
+            telecharger_observations(self.produit_final, output_dir)
+            self.result_label.setText("Fichier téléchargé avec succès.")
             self.adjust_window_size()
         else:
-            self.layout.addWidget(QLabel("Aucun résultat final disponible."))
-            self.adjust_window_size()
+            self.result_label.setText("Aucune observation trouvée.")
+        self.result_label.show()
 
     def adjust_window_size(self):
         new_value = self.current_height + self.value_to_add

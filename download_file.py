@@ -139,7 +139,6 @@ def telecharger_observations(filtered_product, dossier_sortie):
     return manifest['Local Path']
 
 if __name__ == "__main__":
-    # Exemple d'utilisation
     objet = "M31"
     rayon = 0.1
 
