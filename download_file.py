@@ -3,15 +3,15 @@ from astropy.coordinates import SkyCoord
 import astropy.units as units
 import os
 
-def obtenir_observations(objet, rayon):
+def get_observations(object_name, radius):
     """
     Recherche des observations pour un objet donné dans un rayon spécifié.
     """
     # Convertir le nom de l'objet en coordonnées
-    coord = SkyCoord.from_name(objet)
+    coord = SkyCoord.from_name(object_name)
     
     # Rechercher des observations dans le rayon donné
-    observations = Observations.query_region(coord, radius=rayon * units.deg)
+    observations = Observations.query_region(coord, radius=radius * units.deg)
     
     # Filtrer les observations pour ne garder que les images
     observations = observations[observations['dataproduct_type'] == "image"]
@@ -21,7 +21,7 @@ def obtenir_observations(objet, rayon):
 
     return observations
 
-def obtenir_missions(observations):
+def get_missions(observations):
     """
     Récupère les missions uniques à partir des observations.
     """
@@ -31,7 +31,7 @@ def obtenir_missions(observations):
             unique_missions.append(collection)
     return unique_missions
 
-def filtrer_par_mission(observations, mission):
+def filter_by_mission(observations, mission):
     """
     Filtre les observations en fonction de la mission sélectionnée.
     """
@@ -40,7 +40,7 @@ def filtrer_par_mission(observations, mission):
         return None
     return observations
 
-def obtenir_programmes(observations):
+def get_programs(observations):
     """
     Récupère les programmes uniques à partir des observations filtrées.
     """
@@ -50,16 +50,16 @@ def obtenir_programmes(observations):
             unique_programs.append(program)
     return unique_programs
 
-def filtrer_par_programme(observations, programme):
+def filter_by_program(observations, program):
     """
     Filtre les observations en fonction du programme sélectionné.
     """
-    observations = observations[observations['proposal_id'] == programme]
+    observations = observations[observations['proposal_id'] == program]
     if len(observations) == 0:
         return None
     return observations
 
-def obtenir_objets_celestes(observations):
+def get_celestial_objects(observations):
     """
     Récupère les objets célestes uniques à partir des observations filtrées.
     """
@@ -69,20 +69,20 @@ def obtenir_objets_celestes(observations):
             unique_celestial_objects.append(celestial_object)
     return unique_celestial_objects
 
-def filtrer_par_objet_celeste(observations, objet_celeste):
+def filter_by_celestial_object(observations, celestial_object):
     """
     Filtre les observations en fonction de l'objet céleste sélectionné.
     """
-    observations = observations[observations['target_name'] == objet_celeste]
+    observations = observations[observations['target_name'] == celestial_object]
     if len(observations) == 0:
         return None
     return observations
 
-def obtenir_produit_final(observations):
+def get_final_product(observations, ideal_Mo_size=50):
     """
-    Sélectionne le produit final en fonction de la taille la plus proche de 50 Mo.
+    Sélectionne le produit final en fonction de la taille la plus proche de ideal_Mo_size.
     """
-    # Filtrer pour ne garder que les fichiers FITS
+    # Filtrer pour ne garder que les fichiers FITS dans les observations pour que la recherche de produits soit plus rapide
     observations = observations[[ ".fits" in url for url in observations['dataURL'] ]]
     
     if len(observations) == 0:
@@ -95,7 +95,7 @@ def obtenir_produit_final(observations):
     products = products[[ ".fits" in url for url in products['dataURI'] ]]
     
     # Garder le fichier avec la taille la plus proche de 50Mo
-    target_size = 50000000
+    target_size = ideal_Mo_size * 1000000
     sizes = [product['size'] for product in products]
     
     def absolute_difference(x):
@@ -114,61 +114,61 @@ def obtenir_produit_final(observations):
     # Retourner le dernier produit
     return products_filtered_size[-1]
 
-def telecharger_observations(filtered_product, dossier_sortie):
+def download_observations(filtered_product, output_folder):
     """
     Télécharge le fichier FITS filtré.
 
     Paramètres :
     - filtered_product : Le produit FITS filtré.
-    - dossier_sortie (str) : Le dossier où sauvegarder le fichier.
+    - output_folder (str) : Le dossier où sauvegarder le fichier.
 
     Retourne :
-    - Le chemin local du fichier téléchargé.
+    - Le manifeste du produit téléchargé.
     """
-    if not os.path.exists(dossier_sortie):
-        os.makedirs(dossier_sortie)
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
 
     # Télécharger le fichier FITS filtré dans le dossier de sortie
     manifest = Observations.download_products(
         filtered_product,
-        download_dir=dossier_sortie,
+        download_dir=output_folder,
         flat=True,
         verbose=False
     )
 
-    return manifest['Local Path']
+    return manifest
 
 if __name__ == "__main__":
-    # Exemple d'utilisation
-    objet = "M31"
-    rayon = 0.1
+    object_name = "M31"
+    radius = 0.1
 
-    observations = obtenir_observations(objet, rayon)
+    observations = get_observations(object_name, radius)
     if observations is None:
         exit()
 
-    missions = obtenir_missions(observations)
+    missions = get_missions(observations)
     print("Missions disponibles :", missions)
     mission_selected = "HST"
-    observations = filtrer_par_mission(observations, mission_selected)
+    
+    observations = filter_by_mission(observations, mission_selected)
     if observations is None:
         exit()
 
-    programmes = obtenir_programmes(observations)
-    print("Programmes disponibles :", programmes)
-    programme_selected = "10006"
-    observations = filtrer_par_programme(observations, programme_selected)
+    programs = get_programs(observations)
+    print("Programmes disponibles :", programs)
+    program_selected = "10006"
+    
+    observations = filter_by_program(observations, program_selected)
     if observations is None:
         exit()
 
-    objets_celestes = obtenir_objets_celestes(observations)
-    print("Objets célestes disponibles :", objets_celestes)
-    objet_celeste_selected = "M31-BH3"
-    observations = filtrer_par_objet_celeste(observations, objet_celeste_selected)
+    celestial_objects = get_celestial_objects(observations)
+    print("Objets célestes disponibles :", celestial_objects)
+    celestial_object_selected = "M31-BH3"
+    
+    observations = filter_by_celestial_object(observations, celestial_object_selected)
     if observations is None:
         exit()
 
-    produit_final = obtenir_produit_final(observations)
-    print("Produit final :", produit_final)
-
-    print("Fin du programme.")
+    final_product = get_final_product(observations, ideal_Mo_size=50)
+    print("Produit final :", final_product)
