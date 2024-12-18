@@ -4,6 +4,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtCore import pyqtSignal
 
 from ImageView import ImageView
+from FilterDialog import FilterDialog
 
 # -----------------------------------------------------------------------------
 # --- classe SoftwareView
@@ -31,9 +32,10 @@ class SoftwareView(QMainWindow):
         # Menu bar
         menu_bar = self.menuBar()
         menu_file = menu_bar.addMenu('&Fichier')
-        menu_file.addAction('Ouvrir', self.openImage)
+        menu_file.addAction('Ouvrir un fichier', self.openImage)
+        menu_file.addAction('Ouvrir un dossier', self.openFolder)
         menu_filter = menu_bar.addMenu('&Filtres')
-        menu_filter.addAction('Appliquer un filtre')
+        menu_filter.addAction('Appliquer un filtre',self.openFilterDialog)
 
         # Layouts
         layout_tools = QHBoxLayout()
@@ -42,6 +44,7 @@ class SoftwareView(QMainWindow):
         # Widgets
         self.image = ImageView()
         self.tabWidget = QTabWidget()
+        self.filter = FilterDialog()
 
         self.table_widget = QTableWidget()
         self.table_widget.setColumnCount(2)
@@ -64,6 +67,9 @@ class SoftwareView(QMainWindow):
 
     # Signals
     imageButtonClicked = pyqtSignal(str)
+    folderButtonClicked = pyqtSignal(str)
+
+    filterButtonClicked = pyqtSignal()
 
     # Methodes
     def openImage(self) -> None:
@@ -75,6 +81,18 @@ class SoftwareView(QMainWindow):
         fpath = QFileDialog.getOpenFileName(self, 'Open file',self.parent_directory,"*.fit *.fits *.fts")[0]
         if fpath != "": # Si l'utilisateur ne sélectionne aucun fichier.
             self.imageButtonClicked.emit(fpath)
+
+    def openFolder(self) -> None :
+        fpath = QFileDialog.getExistingDirectory(self, 'Open folder', self.parent_directory)
+        if fpath != "": # Si l'utilisateur ne sélectionne aucun répertoire.
+            imageList = os.listdir(fpath)
+            for image in imageList:
+                pass
+
+
+    def openFilterDialog(self) -> None :
+        self.filter.exec()
+        self.filterButtonClicked.emit()
     
     def updateInfoTable(self, infoHeader) -> None :
         """

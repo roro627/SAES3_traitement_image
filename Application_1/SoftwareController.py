@@ -4,6 +4,8 @@ from SoftwareModel import SoftwareModel
 from PyQt6.QtWidgets import *
 from PyQt6.QtWidgets import QApplication
 import sys, os
+import matplotlib.pyplot as plt
+
 
 # -----------------------------------------------------------------------------
 # --- classe SoftwareController
