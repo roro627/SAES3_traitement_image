@@ -1,7 +1,7 @@
 import os,sys
 from PyQt6 import QtCore
 from PyQt6.QtWidgets import *
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import QSize
 from PyQt6.QtGui import QIcon
 import matplotlib.pyplot as plt
 
@@ -18,32 +18,52 @@ class FilterDialog(QDialog):
 
     def __init__(self) :
         super().__init__()
-        self.setWindowTitle("Application de filtres")
+        self.setWindowTitle("Conversion polychromatique (RVB)")
+        self.setMinimumSize(QSize(500, 50))
 
         # Layouts
         mainLayout = QVBoxLayout()
         filterLayout = QVBoxLayout()
+        composantRLayout = QHBoxLayout()
+        composantVLayout = QHBoxLayout()
+        composantBLayout = QHBoxLayout()
         
         # Widgets
-        self.filter = QComboBox()
-        self.filter.addItems(["Filtre 1","Filtre 2","Filtre 3"])
+        self.filterR = QComboBox()
+        self.filterV = QComboBox()
+        self.filterB = QComboBox()
 
-        self.labelR = QLabel("Rouge (R)")
-        self.labelV = QLabel("Vert (V)")
-        self.labelB = QLabel("Bleu (B)")
+        self.labelR = QLabel("(R) Rouge")
+        self.labelV = QLabel("(V) Vert")
+        self.labelB = QLabel("(B) Bleu")
 
-        filterLayout.addWidget(self.filter)
+        self.applyBtn = QPushButton("Appliquer")
 
-        # Créer une figure matplotlib
-        self.figure = Figure()
-        self.canvas = FigureCanvas(self.figure)
+        composantRLayout.addWidget(self.labelR)
+        composantRLayout.addWidget(self.filterR)
+
+        composantVLayout.addWidget(self.labelV)
+        composantVLayout.addWidget(self.filterV)
+
+        composantBLayout.addWidget(self.labelB)
+        composantBLayout.addWidget(self.filterB)
+
+        filterLayout.addLayout(composantRLayout)
+        filterLayout.addLayout(composantVLayout)
+        filterLayout.addLayout(composantBLayout)
+        filterLayout.addWidget(self.applyBtn)
 
         # Ajouter un layout pour le widget
         layout = QVBoxLayout()
-        layout.addWidget(self.canvas)
 
         mainLayout.addLayout(filterLayout)
         mainLayout.addLayout(layout)
 
         self.setLayout(mainLayout)
+    
+    def updateFilter(self, filterList):
+        self.filterR.clear(), self.filterV.clear(), self.filterB.clear()
+        self.filterR.addItems(filterList)
+        self.filterV.addItems(filterList)
+        self.filterB.addItems(filterList)
 

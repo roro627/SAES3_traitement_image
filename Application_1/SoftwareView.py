@@ -32,10 +32,12 @@ class SoftwareView(QMainWindow):
         # Menu bar
         menu_bar = self.menuBar()
         menu_file = menu_bar.addMenu('&Fichier')
-        menu_file.addAction('Ouvrir un fichier', self.openImage)
+        menu_file.addAction('Ouvrir un fichier', self.openFile)
         menu_file.addAction('Ouvrir un dossier', self.openFolder)
-        menu_filter = menu_bar.addMenu('&Filtres')
-        menu_filter.addAction('Appliquer un filtre',self.openFilterDialog)
+        menu_file.addSeparator()
+        menu_file.addAction('Enregistrer sous...')
+        menu_filter = menu_bar.addMenu('&Filtre')
+        menu_filter.addAction('Conversion polychromatique (RVB)',self.openFilterDialog)
 
         # Layouts
         layout_tools = QHBoxLayout()
@@ -57,7 +59,7 @@ class SoftwareView(QMainWindow):
         self.tab1 = QWidget()
         self.tab1.setLayout(tab1_layout)
         tab1_layout.addWidget(self.table_widget)
-        self.tabWidget.addTab(self.tab1,'Fits Header')
+        self.tabWidget.addTab(self.tab1,'Pas de fichier(s)')
 
         # Ajout de widgets dans le layout layout_tools
         layout_tools.addWidget(self.image)
@@ -66,13 +68,12 @@ class SoftwareView(QMainWindow):
         mainlayout.addLayout(layout_tools)
 
     # Signals
-    imageButtonClicked = pyqtSignal(str)
-    folderButtonClicked = pyqtSignal(str)
-
+    fileButtonClicked = pyqtSignal(list)
+    folderButtonClicked = pyqtSignal(list)
     filterButtonClicked = pyqtSignal()
 
     # Methodes
-    def openImage(self) -> None:
+    def openFile(self) -> None:
         """
         Cette méthode permet d'ouvrir une boîte de dialogue de sélection de fichier pour choisir une image.
         Paramètres :self (SoftwareView) : L'instance de la classe.
@@ -80,15 +81,24 @@ class SoftwareView(QMainWindow):
         """
         fpath = QFileDialog.getOpenFileName(self, 'Open file',self.parent_directory,"*.fit *.fits *.fts")[0]
         if fpath != "": # Si l'utilisateur ne sélectionne aucun fichier.
-            self.imageButtonClicked.emit(fpath)
+            self.fileButtonClicked.emit([fpath])
 
     def openFolder(self) -> None :
+        """
+        Cette méthode permet d'ouvrir une boîte de dialogue de sélection de répertoire pour choisir des images.
+        Paramètres :self (SoftwareView) : L'instance de la classe.
+        Return : None
+        """
         fpath = QFileDialog.getExistingDirectory(self, 'Open folder', self.parent_directory)
         if fpath != "": # Si l'utilisateur ne sélectionne aucun répertoire.
-            imageList = os.listdir(fpath)
-            for image in imageList:
-                pass
+            imageListName = os.listdir(fpath)
+            imageListPath = []
 
+            for image in imageListName : 
+                imagePath = fpath + '/' + image
+                imageListPath.append(imagePath)
+            
+            self.folderButtonClicked.emit(imageListPath)
 
     def openFilterDialog(self) -> None :
         self.filter.exec()
@@ -101,17 +111,34 @@ class SoftwareView(QMainWindow):
                     infoHeader (fits.header.Header) : Entête d'une image FITS.
         Return : None
         """
-        self.table_widget.setRowCount(len(infoHeader))
+        tabWidget = QWidget()
+        tabLayout = QVBoxLayout()
+
+        table_widget = QTableWidget()
+        table_widget.setColumnCount(2)
+        table_widget.setHorizontalHeaderLabels(["Clé", "Valeur"])
+        table_widget.verticalHeader().setVisible(False)
+        header = table_widget.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        header.setStretchLastSection(True)
+
+        tabWidget.setLayout(tabLayout)
+        tabLayout.addWidget(table_widget)
+
+        table_widget.setRowCount(len(infoHeader))
 
         index : int = 0
         for (key, value) in infoHeader.items():
 
             itemkey = QTableWidgetItem(f"{key}")
-            self.table_widget.setItem(index, 0, itemkey)
+            table_widget.setItem(index, 0, itemkey)
 
             itemvalue = QTableWidgetItem(f"{value}")
-            self.table_widget.setItem(index, 1, itemvalue)
+            table_widget.setItem(index, 1, itemvalue)
             index += 1
+
+        self.tabWidget.addTab(tabWidget,'FITS Header')
+
 
 if __name__ == "__main__":  
     print(' ----- Execution du logiciel ----- ')
