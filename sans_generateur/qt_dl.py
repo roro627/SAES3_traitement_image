@@ -3,7 +3,6 @@ from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QComboBo
 from PyQt6.QtCore import QSize, QThread, pyqtSignal, QTimer
 from download_file import *
 from PyQt6.QtGui import QIcon
-import itertools
 
 class SearchThread(QThread):
     """
@@ -17,8 +16,8 @@ class SearchThread(QThread):
         self.radius = radius
 
     def run(self):
-        observations_generator = get_observations(self.object_name, self.radius)
-        self.observations_ready.emit(observations_generator)
+        observations = get_observations(self.object_name, self.radius)
+        self.observations_ready.emit(observations)
 
 class DownloadThread(QThread):
     """
@@ -180,16 +179,18 @@ class MainWindow(QWidget):
         self.search_button.setText(self.animation_texts[self.animation_index])
         self.animation_index = (self.animation_index + 1) % len(self.animation_texts)
 
-    def on_observations_ready(self, observations_generator):
+    def on_observations_ready(self, observations):
         """
         Quand les observations sont prêtes.
         """
         # Arrêter l'animation
         self.animation_timer.stop()
         self.search_button.setText("Rechercher")
-        # Dupliquer le générateur pour une utilisation multiple
-        self.observations_generator, self.observations_generator_copy = itertools.tee(observations_generator)
-        self.missions = ["Sélectionner une mission"] + list(get_missions(self.observations_generator))
+        self.observations = observations
+        if self.observations is None:
+            return
+
+        self.missions = ["Sélectionner une mission"] + get_missions(self.observations)
         if self.missions:
             self.mission_combo.clear()
             self.mission_combo.addItems(self.missions)
@@ -201,25 +202,20 @@ class MainWindow(QWidget):
         """
         Remplir la combobox des objets célestes en fonction de la mission sélectionnée.
         """
-        if mission == "Sélectionner une mission":
+        self.observations_mission = filter_by_mission(self.observations, mission)
+        if self.observations_mission is None:
             return
 
-        # Utiliser une copie du générateur pour filtrer par mission
-        self.observations_generator_copy, observations_mission_gen = itertools.tee(self.observations_generator_copy)
-        self.observations_mission_list = list(filter_by_mission(observations_mission_gen, mission))
-        if not self.observations_mission_list:
-            self.result_label.setText("Aucune observation pour cette mission.")
-            self.result_label.show()
-            self.adjust_window_size()
-            return
-
-        celestial_objects = ["Sélectionner un objet céleste"] + list(get_celestial_objects(self.observations_mission_list))
-        if celestial_objects:
+        self.celestial_objects = ["Sélectionner un objet céleste"] + get_celestial_objects(self.observations_mission)
+        if self.celestial_objects:
             self.celestial_combo.clear()
-            self.celestial_combo.addItems(celestial_objects)
+            self.celestial_combo.addItems(self.celestial_objects)
             self.celestial_label.show()
             self.celestial_combo.show()
             self.adjust_window_size()
+            
+            # Réduire la charge de la mémoire
+            self.celestial_objects = None
 
     def populate_program_combo(self, celestial_object):
         """
@@ -228,22 +224,24 @@ class MainWindow(QWidget):
         if celestial_object == "Sélectionner un objet céleste":
             return
         
-        observations_object_gen = filter_by_celestial_object(self.observations_mission_list, celestial_object)
-        self.observations_object_list = list(observations_object_gen)
-        if not self.observations_object_list:
+        self.observations_object = filter_by_celestial_object(self.observations_mission, celestial_object)
+        if self.observations_object is None:
             self.result_label.setText("Aucune observation trouvée.")
             self.result_label.show()
             self.adjust_window_size()
             return
 
-        programs = ["Sélectionner un programme"] + list(get_programs(self.observations_object_list))
-        if programs:
+        self.programs = ["Sélectionner un programme"] + [program for program in get_programs(self.observations_object) if isinstance(program, str)]
+        if self.programs:
             self.program_combo.clear()
-            self.program_combo.addItems(programs)
+            self.program_combo.addItems(self.programs)
             self.program_label.show()
             self.program_combo.show()
             self.adjust_window_size()
             
+            # Réduire la charge de la mémoire
+            self.programs = None
+
     def manage_final_product(self, program):
         """
         Trouver le produit final et le télécharger s'il existe.
@@ -251,12 +249,11 @@ class MainWindow(QWidget):
         if program == "Sélectionner un programme":
             return
 
-        observations_program_gen = filter_by_program(self.observations_object_list, program)
-        self.observations_program_list = list(observations_program_gen)
-        if not self.observations_program_list:
+        self.observations_program = filter_by_program(self.observations_object, program)
+        if self.observations_program is None:
             return
 
-        self.final_product = get_final_product(self.observations_program_list, self.ideal_Mo_size)
+        self.final_product = get_final_product(self.observations_program, self.ideal_Mo_size)
         if self.final_product is not None:
             self.result_label.setText("Fichier FITS trouvé, téléchargement en cours")
             self.result_label.show()
@@ -267,7 +264,7 @@ class MainWindow(QWidget):
             self.result_label_timer.start(1000)
 
             # Démarrer le thread de téléchargement
-            self.download_thread = DownloadThread(self.final_product, self.output_directory, self)
+            self.download_thread = DownloadThread(self.final_product, self.output_directory,self)
             self.download_thread.download_complete.connect(self.on_download_complete)
             self.download_thread.start()
         else:

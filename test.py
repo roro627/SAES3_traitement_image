@@ -1,52 +1,61 @@
-from astroquery.mast import Observations
+import sys
+import numpy as np
+from astropy.io import fits
+from PyQt6.QtWidgets import QApplication, QGraphicsView, QGraphicsScene
+from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtCore import Qt
 
-metadata = Observations.get_metadata(query_type='observations')
-for column in metadata:
-    print(column)
-    print("\n\n")
+class FITSViewer(QGraphicsView):
+    def __init__(self, fits_path):
+        super().__init__()
 
-# marche pas 
-# from astroquery.mast import Observations
+        # Charger les données FITS avec vérification
+        try:
+            data = fits.getdata(fits_path)
+        except Exception as e:
+            print(f"Erreur de chargement du fichier FITS : {e}")
+            sys.exit(1)
 
-# def lister_objets_disponibles():
-#     """
-#     Liste tous les objets disponibles dans le MAST.
+        # Éliminer les valeurs aberrantes
+        data = np.clip(data, np.percentile(data, 1), np.percentile(data, 99))
 
-#     Retourne :
-#     - Une liste des objets disponibles.
-#     """
-#     # Requête pour obtenir tous les objets disponibles avec un critère
-#     objets = Observations.query_criteria(dataproduct_type='image')
-#     return objets
+        # Normaliser les données
+        norm_data = 255 * (data - np.min(data)) / (np.max(data) - np.min(data))
+        norm_data = np.clip(norm_data, 0, 255).astype(np.uint8)
 
-# if __name__ == "__main__":
-#     objets = lister_objets_disponibles()
-#     print(objets)
+        # Assurez-vous que les données sont contiguës
+        norm_data = np.ascontiguousarray(norm_data)
 
-# def test():
-#     i = 0
-#     i = yield i + 1  # Première valeur renvoyée
-#     i = yield i + 1  # Deuxième valeur renvoyée
-#     i = yield i + 1  # Troisième valeur renvoyée
-#     if i is None:
-#         i = 0
-#     yield i + 1  # Quatrième valeur renvoyée
+        # Créer un QImage à partir des données normalisées
+        height, width = norm_data.shape
+        bytes_per_line = norm_data.strides[0]
+        self.image = QImage(norm_data.data, width, height, bytes_per_line, QImage.Format.Format_Grayscale8)
 
-# gen = test()
-# print(next(gen))  # Démarre le générateur et renvoie 1
-# print(gen.send(2))  # Envoie 2 au générateur, i devient 2, renvoie 3 (2 + 1)
-# print(gen.send(10))  # Envoie 10 au générateur, i devient 10, renvoie 11 (10 + 1)
-# print(gen.send(None))  # Envoie None, i devient 0, renvoie 1 (0 + 1)
+        # Convertir QImage en QPixmap
+        pixmap = QPixmap.fromImage(self.image)
 
+        # Configurer la scène et ajouter le pixmap
+        self.scene = QGraphicsScene()
+        self.scene.addPixmap(pixmap)
+        self.setScene(self.scene)
 
+        # Configurer le zoom avec la molette de la souris
+        self.setMouseTracking(True)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
 
+    def wheelEvent(self, event):
+        zoom_in = 1.15
+        zoom_out = 0.85
 
+        if event.angleDelta().y() > 0:
+            self.scale(zoom_in, zoom_in)
+        else:
+            self.scale(zoom_out, zoom_out)
 
-# from astropy.io import fits
-# import matplotlib.pyplot as plt
-# # C h a r g e r l e f i c h i e r FITS
-# data = fits.getdata('Sirius_data.fits')
-# # A f f i c h e r l ’ i m a g e
-# plt.imshow(data, cmap='gray')
-# plt.colorbar()
-# plt.show()
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    viewer = FITSViewer(r'downloads\j8vp03olq_raw.fits')
+    viewer.setWindowTitle("FITS Viewer avec Zoom")
+    viewer.show()
+    sys.exit(app.exec())
