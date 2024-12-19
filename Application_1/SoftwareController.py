@@ -22,6 +22,10 @@ class SoftwareController():
         # -------------- Signaux de View -------------- #
         self.view.fileButtonClicked.connect(self.openFile)
         self.view.folderButtonClicked.connect(self.openFolder)
+        self.view.exportButtonClicked.connect(self.saveImage)
+
+        # -------------- Signaux de View.filter -------------- #
+        self.view.filter.applyButtonClicked.connect(self.createFilteredImage)
 
     # --- Méthodes pour View --- #
 
@@ -34,32 +38,44 @@ class SoftwareController():
         Return : None
         """
         self.model.ImageHead = []
-        self.model.ImageFilter = []
+        self.model.ImageFilter = {}
         self.model.ImageBody = []
         self.view.tabWidget.clear()
-        self.view.filter.filterR.clear(), self.view.filter.filterV.clear(), self.view.filter.filterB.clear()
+        self.view.filter.clearFilter()
 
         self.model.setImagePath(fpath)
-        data = self.model.openImage()
+        self.model.openImage()
+        data = self.model.normalize_data(self.model.ImageBody[0])
         self.view.image.setPixmap(data)
         self.view.updateInfoTable(self.model.ImageHead[0])
 
     def openFolder(self, fpath):
         self.model.ImageHead = []
-        self.model.ImageFilter = []
+        self.model.ImageFilter = {}
         self.model.ImageBody = []
         self.view.tabWidget.clear()
+        self.view.filter.clearFilter()
+
 
         self.model.setImagePath(fpath)
         self.model.openImage()
+
         self.view.filter.updateFilter(self.model.ImageFilter)
 
         for imgHead in self.model.ImageHead : self.view.updateInfoTable(imgHead)
 
+    def saveImage(self):
+        self.model.exportAsPNG()
+
+    # --- Méthodes pour View.filter --- #
+
+    def createFilteredImage(self, dict):
+        img = self.model.filteredImage(dict)
+        self.view.image.setColorPixmap(img)
+
     def show(self):
         """
         Cette méthode permet d'afficher la vue.
-        
         Paramètres : self (SoftwareController) : L'instance de la classe.
         Return : None
         """

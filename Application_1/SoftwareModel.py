@@ -1,5 +1,9 @@
 from astropy.io import fits
+from skimage import exposure
+from PIL import Image
 import numpy as np
+from datetime import datetime
+import sys
 
 # -----------------------------------------------------------------------------
 # --- classe SoftwareModel
@@ -13,25 +17,23 @@ class SoftwareModel:
         # Attributs
         self.ImagePath : list[str] = []
         self.ImageHead : list[fits.header.Header]  = []
-        self.ImageFilter : list[dict] = []
+        self.ImageFilter : dict = {}
         self.ImageBody : list[np.ndarray] = []
+        self.ImageExport : np.ndarray = []
 
-    def openImage(self) -> np.ndarray :
+    def openImage(self) -> None :
         for imagePath in self.ImagePath :
             with fits.open(imagePath) as hdul:
                 dataHeader = hdul[0].header
                 dataFilter = dataHeader['FILTER']
                 data = hdul[0].data
 
-                self.setImageHead(dataHeader)
-                self.setImageFilter(dataFilter)
-                self.setImageBody(data)
-
-                # Normalisation
                 data = np.nan_to_num(data)
-                data = (data - data.min()) / (data.max() - data.min())
+
+                self.setImageHead(dataHeader)
+                self.setImageFilter(dataFilter, data)
+                self.setImageBody(data)
         
-        return data
 
     def setImagePath(self,fpath) -> None :
         """
@@ -55,8 +57,11 @@ class SoftwareModel:
         """
         self.ImageHead.append(imgHead)
 
-    def setImageFilter(self, imgFilter) -> None :
-        self.ImageFilter.append(imgFilter)
+    def setImageFilter(self, imgFilter, data) -> None :
+        data = self.log_scale(data)
+        data = self.normalize_data(data)
+        data = exposure.equalize_hist(data)
+        self.ImageFilter[imgFilter] = data
 
     def setImageBody(self, imgBody) -> None :
         """
@@ -67,3 +72,31 @@ class SoftwareModel:
         Return :None
         """
         self.ImageBody.append(imgBody)
+
+    def log_scale(self, data):
+        return np.log10(data + 1)
+
+    def normalize_data(self, data):
+        return (data - np.min(data)) / (np.max(data) - np.min(data))
+    
+    def filteredImage(self, dict):
+        # Couleur -> Filtre -> Matrice
+        combined_image = np.stack([self.ImageFilter[dict["Red"]], self.ImageFilter[dict["Green"]], self.ImageFilter[dict["Blue"]]], axis=-1)
+        self.ImageExport = combined_image
+        return combined_image
+    
+        # combined_image = (combined_image * 255).astype(np.uint8)
+        # image = Image.fromarray(combined_image)
+        # image.save("output_image.png")
+    
+    def exportAsPNG(self):
+        combined_image = (self.ImageExport * 255).astype(np.uint8)
+        image = Image.fromarray(combined_image)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename = f"/exports/image_{timestamp}.png"
+
+        current_directory = sys.path[0]
+        output_path = current_directory + output_filename
+        print(output_path)
+        image.save(output_path)

@@ -44,5 +44,21 @@ class ImageView(QGraphicsView):
 
         self.scene.addItem(image_item)
 
+    def setColorPixmap(self, data):
+        height, width , channel  = data.shape   
+        bytesPerLine = channel * width
+
+        # clip
+        data[data>1.0] = 1.0
+        data[data<0.0] = 0.0
+
+        qImg : QImage= QImage(bytes((data*255).astype(np.uint8)), width, height, bytesPerLine, QImage.Format.Format_RGB888) # QImage
+        self.pixmap : QPixmap = QPixmap.fromImage(qImg)
+        self.pixmap = self.pixmap.scaled(int(self.width()), int(self.height()), Qt.AspectRatioMode.KeepAspectRatio)
+        image_item = QGraphicsPixmapItem(self.pixmap)
+
+        self.scene.addItem(image_item)
+
+
     @staticmethod
     def emptyImageGrayData()-> np.ndarray: return np.ones((90,160))*(220/255) 

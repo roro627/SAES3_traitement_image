@@ -2,6 +2,7 @@ import sys,os
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import Qt
 from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtGui import QIcon
 
 from ImageView import ImageView
 from FilterDialog import FilterDialog
@@ -35,9 +36,9 @@ class SoftwareView(QMainWindow):
         menu_file.addAction('Ouvrir un fichier', self.openFile)
         menu_file.addAction('Ouvrir un dossier', self.openFolder)
         menu_file.addSeparator()
-        menu_file.addAction('Enregistrer sous...')
+        menu_file.addAction('Exporter', self.exportFile)
         menu_filter = menu_bar.addMenu('&Filtre')
-        menu_filter.addAction('Conversion polychromatique (RVB)',self.openFilterDialog)
+        menu_filter.addAction(QIcon(self.current_directory+"//icons//RGB_Circle.ico"),'Conversion polychromatique (RVB)', self.openFilterDialog)
 
         # Layouts
         layout_tools = QHBoxLayout()
@@ -67,9 +68,10 @@ class SoftwareView(QMainWindow):
 
         mainlayout.addLayout(layout_tools)
 
-    # Signals
+    # Signaux
     fileButtonClicked = pyqtSignal(list)
     folderButtonClicked = pyqtSignal(list)
+    exportButtonClicked = pyqtSignal()
     filterButtonClicked = pyqtSignal()
 
     # Methodes
@@ -99,6 +101,9 @@ class SoftwareView(QMainWindow):
                 imageListPath.append(imagePath)
             
             self.folderButtonClicked.emit(imageListPath)
+    
+    def exportFile(self) -> None :
+        self.exportButtonClicked.emit()
 
     def openFilterDialog(self) -> None :
         self.filter.exec()
