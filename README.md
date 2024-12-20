@@ -11,10 +11,9 @@ Ce projet est un logiciel de traitement d'images astronomiques développé en Py
 
 ## Fonctionnalités
 
-- Téléchargement d'images astronomiques avec le module astroquery.
+- Téléchargement d'images astronomiques avec astroquery.
 - Interface graphique utilisateur développée avec le module PyQt6.
 - Affichage et manipulation d'images FITS.
-- Application de filtres de couleur aux images.
 - Visualisation des métadonnées des fichiers FITS.
 - Architecture Modèle-Vue-Contrôleur (MVC) pour une meilleure organisation du code.
 
@@ -23,7 +22,7 @@ Ce projet est un logiciel de traitement d'images astronomiques développé en Py
 Assurez-vous d'avoir Python 3 installé sur votre machine. Installez les dépendances nécessaires avec :
 
 ```bash
-pip install PyQt6, astropy, astroquery, scikit-image
+pip install PyQt6, astropy, astroquery, scikit-image, pillow
 ```
 
 ## Utilisation
@@ -40,7 +39,9 @@ Pour ouvrir l'interface de téléchargement (prochainement intégrer à l'applic
 python qt_dl.py
 ```
 
+
+
 ## Remarques
 
-- Le projet a été testé uniquement sur Windows. 
+- Le projet a été testé sur Windows et MacOs
 - Le projet nécéssite une connexion internet pour le téléchargement des images.

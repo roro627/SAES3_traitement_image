@@ -1,24 +1,40 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QComboBox, QPushButton, QLineEdit
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QComboBox, QPushButton, QLineEdit, QSpinBox
 from PyQt6.QtCore import QSize, QThread, pyqtSignal, QTimer
-from download_file import *
 from PyQt6.QtGui import QIcon
 import itertools
+
+from download_file import *
+
+from astropy.io import fits
+
+"""
+TODO:
+    - supprimer programme et mettre 3 comboboxes pour les filtres
+    - lors du dl crée un dossier avec le nom de l'objet et datetime (pour le rendre unqiue) puis dl dedans les fichiers
+"""
 
 class SearchThread(QThread):
     """
     Thread pour la recherche d'observations.
     """
-    observations_ready = pyqtSignal(object)
+    observations_ready = pyqtSignal()
+    celestial_objects_ready = pyqtSignal(list)
 
-    def __init__(self, object_name, radius):
+    def __init__(self, object_name, radius,main_window):
         super().__init__()
         self.object_name = object_name
         self.radius = radius
+        self.main_window = main_window
 
     def run(self):
-        observations_generator = get_observations(self.object_name, self.radius)
-        self.observations_ready.emit(observations_generator)
+        observations = get_observations(self.object_name, self.radius)
+        
+        observations, obs2 = itertools.tee(observations, 2)
+        self.main_window.observations = observations
+        self.observations_ready.emit()
+                
+        self.celestial_objects_ready.emit(get_celestial_objects(obs2))
 
 class DownloadThread(QThread):
     """
@@ -54,19 +70,31 @@ class MainWindow(QWidget):
         self.maxsize = 500
         
         self.output_directory = "downloads"
-        self.ideal_Mo_size = 50
+        self.ideal_Mo_size = 70  # Valeur par défaut
         
+        # Message par défaut pour les combobox
+        self.message_program = "Sélectionner un programme"
+        self.message_filter = "Sélectionner un filtre"
+        self.message_celestial = "Sélectionner un objet céleste"
+
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
 
         # Champs de saisie pour l'objet et le rayon
-        self.layout.addWidget(QLabel("Entrez le nom de l'objet (ex: M31):"))
+        self.layout.addWidget(QLabel("Entrez le nom de l'objet (ex:M31):"))
         self.object_input = QLineEdit()
         self.layout.addWidget(self.object_input)
 
         self.layout.addWidget(QLabel("Entrez le rayon de recherche en degrés (ex: 0.1):"))
         self.radius_input = QLineEdit()
         self.layout.addWidget(self.radius_input)
+
+        # Ajouter le widget pour modifier ideal_Mo_size
+        self.layout.addWidget(QLabel("Entrez la taille idéale du fichier à télécharger (en Mo) (ex: 70):"))
+        self.size_input = QSpinBox()
+        self.size_input.setRange(1, 1000)  # Valeurs possibles
+        self.size_input.setValue(self.ideal_Mo_size)  # Valeur par défaut
+        self.layout.addWidget(self.size_input)
 
         # Bouton pour démarrer la recherche
         self.search_button = QPushButton("Rechercher")
@@ -78,25 +106,25 @@ class MainWindow(QWidget):
         self.layout.addWidget(self.missing_input_label)
         self.missing_input_label.hide()
 
-        # Création de tous les widgets au début, mais les cacher
-
-        self.mission_label = QLabel("Sélectionner une mission:")
-        self.layout.addWidget(self.mission_label)
-        self.mission_label.hide()
-
-        self.mission_combo = QComboBox()
-        self.mission_combo.currentTextChanged.connect(self.populate_mission_combo)
-        self.layout.addWidget(self.mission_combo)
-        self.mission_combo.hide()
+        # Création de tous les widgets au début en les cachant
 
         self.celestial_label = QLabel("Sélectionner un objet céleste:")
         self.layout.addWidget(self.celestial_label)
         self.celestial_label.hide()
 
         self.celestial_combo = QComboBox()
-        self.celestial_combo.currentTextChanged.connect(self.populate_program_combo)
+        self.celestial_combo.currentTextChanged.connect(self.populate_filter_combo)
         self.layout.addWidget(self.celestial_combo)
         self.celestial_combo.hide()
+
+        self.filter_label = QLabel("Sélectionner un filtre:")
+        self.layout.addWidget(self.filter_label)
+        self.filter_label.hide()
+
+        self.filter_combo = QComboBox()
+        self.filter_combo.currentTextChanged.connect(self.populate_program_combo)
+        self.layout.addWidget(self.filter_combo)
+        self.filter_combo.hide()
 
         self.program_label = QLabel("Sélectionner un programme:")
         self.layout.addWidget(self.program_label)
@@ -134,10 +162,11 @@ class MainWindow(QWidget):
         """
         self.object_input.setEnabled(False)
         self.radius_input.setEnabled(False)
-        self.mission_combo.setEnabled(False)
+        self.filter_combo.setEnabled(False)
         self.program_combo.setEnabled(False)
         self.celestial_combo.setEnabled(False)
         self.search_button.setEnabled(False)
+        self.size_input.setEnabled(False)
 
     def enable_inputs(self):
         """
@@ -145,10 +174,11 @@ class MainWindow(QWidget):
         """
         self.object_input.setEnabled(True)
         self.radius_input.setEnabled(True)
-        self.mission_combo.setEnabled(True)
+        self.filter_combo.setEnabled(True)
         self.program_combo.setEnabled(True)
         self.celestial_combo.setEnabled(True)
         self.search_button.setEnabled(True)
+        self.size_input.setEnabled(True)
 
     def start_search(self):
         """
@@ -163,108 +193,148 @@ class MainWindow(QWidget):
             return
         self.missing_input_label.hide()
         
+        self.search_button.setEnabled(False)
+        
         radius = float(radius)
 
         # Démarrer l'animation
         self.animation_index = 0
         self.animation_timer.start(500)
         # Démarrer le thread de recherche
-        self.search_thread = SearchThread(object_name, radius)
+        self.search_thread = SearchThread(object_name, radius, self)
         self.search_thread.observations_ready.connect(self.on_observations_ready)
+        self.search_thread.celestial_objects_ready.connect(self.on_celestial_objects_ready)
         self.search_thread.start()
 
     def update_search_button_text(self):
         """
-        Mettre à jour le texte du bouton de recherche.
+        Mettre à jour le texte du bouton de recherche. Pour l'animation.
         """
         self.search_button.setText(self.animation_texts[self.animation_index])
         self.animation_index = (self.animation_index + 1) % len(self.animation_texts)
 
-    def on_observations_ready(self, observations_generator):
+    def on_observations_ready(self):
         """
-        Quand les observations sont prêtes.
+        Remettre à jour le texte de base et arrêter l'animation.
         """
         # Arrêter l'animation
         self.animation_timer.stop()
         self.search_button.setText("Rechercher")
-        # Dupliquer le générateur pour une utilisation multiple
-        self.observations_generator, self.observations_generator_copy = itertools.tee(observations_generator)
-        self.missions = ["Sélectionner une mission"] + list(get_missions(self.observations_generator))
-        if self.missions:
-            self.mission_combo.clear()
-            self.mission_combo.addItems(self.missions)
-            self.mission_label.show()
-            self.mission_combo.show()
-            self.adjust_window_size()
+        self.search_button.setEnabled(True)
 
-    def populate_mission_combo(self, mission):
+    def on_celestial_objects_ready(self, celestial_objects):
         """
-        Remplir la combobox des objets célestes en fonction de la mission sélectionnée.
+        Quand les objets célestes sont prêts.
         """
-        if mission == "Sélectionner une mission":
-            return
-
-        # Utiliser une copie du générateur pour filtrer par mission
-        self.observations_generator_copy, observations_mission_gen = itertools.tee(self.observations_generator_copy)
-        self.observations_mission_list = list(filter_by_mission(observations_mission_gen, mission))
-        if not self.observations_mission_list:
-            self.result_label.setText("Aucune observation pour cette mission.")
-            self.result_label.show()
-            self.adjust_window_size()
-            return
-
-        celestial_objects = ["Sélectionner un objet céleste"] + list(get_celestial_objects(self.observations_mission_list))
-        if celestial_objects:
+        self.celestial_objects = celestial_objects
+        
+        if self.celestial_objects:
             self.celestial_combo.clear()
-            self.celestial_combo.addItems(celestial_objects)
+            self.celestial_combo.addItems([self.message_celestial] + self.celestial_objects)
             self.celestial_label.show()
             self.celestial_combo.show()
             self.adjust_window_size()
+        else:
+            self.result_label.setText("Aucun objet céleste trouvé.")
+            self.result_label.show()
+            self.adjust_window_size()
 
-    def populate_program_combo(self, celestial_object):
+    def populate_filter_combo(self, celestial_object):
         """
-        Remplir la combobox des programmes en fonction de l'objet céleste sélectionné.
+        Remplir la combobox des filtres en fonction de l'objet céleste sélectionné.
         """
-        if celestial_object == "Sélectionner un objet céleste":
-            return
+        # Mettre les valeurs de base pour les autres comboboxes
+        self.filter_combo.clear()
+        self.program_combo.clear()
         
-        observations_object_gen = filter_by_celestial_object(self.observations_mission_list, celestial_object)
-        self.observations_object_list = list(observations_object_gen)
-        if not self.observations_object_list:
-            self.result_label.setText("Aucune observation trouvée.")
+        self.filter_combo.setCurrentText(self.message_filter)
+        self.program_combo.setCurrentText(self.message_program)
+
+        if celestial_object == self.message_celestial:
+            return
+
+        self.observations,obs_2 = itertools.tee(self.observations, 2)
+
+        self.observations_celestial = filter_by_celestial_object(obs_2, celestial_object)
+        
+        self.observations_celestial, obs2 = itertools.tee(self.observations_celestial, 2)
+
+        filters = get_filters(obs2)
+
+        if not filters:
+            self.result_label.setText("Aucun filtre pour cet objet céleste.")
             self.result_label.show()
             self.adjust_window_size()
             return
-
-        programs = ["Sélectionner un programme"] + list(get_programs(self.observations_object_list))
-        if programs:
-            self.program_combo.clear()
-            self.program_combo.addItems(programs)
-            self.program_label.show()
-            self.program_combo.show()
-            self.adjust_window_size()
+        else:
+            self.result_label.hide()
             
+        filters = [self.message_filter] + filters
+        self.filter_combo.clear()
+        self.filter_combo.addItems(filters)
+        self.filter_label.show()
+        self.filter_combo.show()
+        self.adjust_window_size()
+
+    def populate_program_combo(self, filter_value):
+        """
+        Remplir la combobox des programmes en fonction du filtre sélectionné.
+        """
+        # Mettre les valeurs de base pour la combobox des programmes
+        self.program_combo.clear()
+        self.program_combo.setCurrentText(self.message_program)
+
+        if filter_value == self.message_filter:
+            return
+
+        self.observations_celestial, obs2 = itertools.tee(self.observations_celestial, 2)
+
+        self.observations_filter = filter_by_filter(obs2, filter_value)
+
+        self.observations_filter, obs2 = itertools.tee(self.observations_filter, 2)
+
+        programs = get_programs(obs2)
+
+        if not programs:
+            self.result_label.setText("Aucun programme pour ce filtre.")
+            self.result_label.show()
+            self.adjust_window_size()
+            return
+        else:
+            self.result_label.hide()
+            
+        programs = [self.message_program] + programs
+        self.program_combo.clear()
+        self.program_combo.addItems(programs)
+        self.program_label.show()
+        self.program_combo.show()
+        self.adjust_window_size()
+
     def manage_final_product(self, program):
         """
         Trouver le produit final et le télécharger s'il existe.
         """
-        if program == "Sélectionner un programme":
+        if program == self.message_program or program =="":
             return
 
-        observations_program_gen = filter_by_program(self.observations_object_list, program)
-        self.observations_program_list = list(observations_program_gen)
-        if not self.observations_program_list:
-            return
+        self.observations_filter, obs2 = itertools.tee(self.observations_filter, 2)
 
-        self.final_product = get_final_product(self.observations_program_list, self.ideal_Mo_size)
+        self.observations_program = list(filter_by_program(obs2, program))
+        
+        # Mettre à jour ideal_Mo_size avec la valeur du widget
+        self.ideal_Mo_size = self.size_input.value()
+
+        self.final_product = get_final_product(self.observations_program, self.ideal_Mo_size)
+        
         if self.final_product is not None:
+            
             self.result_label.setText("Fichier FITS trouvé, téléchargement en cours")
             self.result_label.show()
             self.adjust_window_size()
 
             # Démarrer l'animation
             self.result_label_index = 0
-            self.result_label_timer.start(1000)
+            self.result_label_timer.start(500)
 
             # Démarrer le thread de téléchargement
             self.download_thread = DownloadThread(self.final_product, self.output_directory, self)
@@ -295,6 +365,14 @@ class MainWindow(QWidget):
         else:
             self.result_label.setText("Erreur lors du téléchargement. Essayer un autre produit.")
         self.adjust_window_size()
+
+        # Mettre à jour le header du fichier FITS avec le filtre
+        current_filter = self.filter_combo.currentText()
+        dl_path = manifest["Local Path"][0]
+        with fits.open(dl_path, mode="update") as fits_file:
+            fits_file[0].header["FILTER"] = current_filter
+            fits_file.flush()
+
 
         # Réactiver les entrées après le téléchargement
         self.enable_inputs()
