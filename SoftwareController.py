@@ -3,11 +3,11 @@ from SoftwareModel import SoftwareModel
 
 from PyQt6.QtWidgets import *
 from PyQt6.QtWidgets import QApplication
-import sys, os
-import matplotlib.pyplot as plt
+import sys
 
 # -----------------------------------------------------------------------------
 # --- classe SoftwareController
+# --- Fait par : COCQUEREL Alexis et LAMBERT Romain
 # -----------------------------------------------------------------------------
 
 class SoftwareController():
@@ -31,50 +31,54 @@ class SoftwareController():
 
     def openFile(self, fpath):
         """
-        Cette méthode est utilisé lors de l'ouverture d'une image FITS.
+        Cette méthode est utilisée lors de l'ouverture d'une image FITS.
         Quand un fichier FITS est ouvert celui-ci est affiché ainsi que l'ensemble de ses informations situées dans l'entête.
         Paramètres : self (SoftwareController) : L'instance de la classe.
                     fpath (str) : Chemin vers l'image FITS.
         Return : None
         """
+        # Réinitialisation des attributs de l'instance de SoftwareModel
         self.model.ImageHead = []
         self.model.ImageFilter = {}
         self.model.ImageBody = []
         self.view.tabWidget.clear()
-        self.view.tabWidget2.clear()
         self.view.filter.clearFilter()
 
         self.model.setImagePath(fpath)
         datas = self.model.openImage()
-        self.view.image.addImagesToTabWidget(datas, self.view.tabWidget2)
-        self.view.updateInfoTable(self.model.ImageHead[0])
+        self.view.image.addInfoToTabWidget(datas, self.model.ImageHead, self.view.tabWidget)
 
     def openFolder(self, fpath):
-        self.model.ImageHead = []
-        self.model.ImageFilter = {}
-        self.model.ImageBody = []
-        self.view.tabWidget.clear()
-        self.view.tabWidget2.clear()
-
-        self.view.filter.clearFilter()
-
-
-        self.model.setImagePath(fpath)
-        datas = self.model.openImage()
-        self.view.image.addImagesToTabWidget(datas, self.view.tabWidget2)
-
-        self.view.filter.updateFilter(self.model.ImageFilter)
-
-        for imgHead in self.model.ImageHead : self.view.updateInfoTable(imgHead)
+        """
+        Cette méthode est utilisée lors de l'ouverture d'un repertoire contenant des images FITS.
+        Quand un fichier FITS est ouvert celui-ci est affiché ainsi que l'ensemble de ses informations situées dans l'entête.
+        Paramètres : self (SoftwareController) : L'instance de la classe.
+                    fpath (str) : Chemin vers l'image FITS.
+        Return : None
+        """
+        self.openFile(fpath)
+        self.view.filter.updateFilter(self.model.ImageFilter) # La mise à jour des filtres ne se fait que si plusieurs images sont ouvertes.
 
     def saveImage(self):
+        """
+        Cette méthode permet de sauvegarder l'image filtrée.
+        Paramètres : self (SoftwareController) : L'instance de la classe.
+        Return : None
+        """
         self.model.exportAsPNG()
 
     # --- Méthodes pour View.filter --- #
 
     def createFilteredImage(self, dict):
-        img = self.model.filteredImage(dict)
-        self.view.image.setColorPixmap(img)
+        """
+        Cette méthode permet de créer une image filtrée.
+        Paramètres : self (SoftwareController) : L'instance de la classe.
+                    dict (dict) : Dictionnaire contenant les informations des filtres.
+        Return : None
+        """
+        self.model.filteredImage(dict)
+
+    # --- Autre --- #
 
     def show(self):
         """
@@ -85,10 +89,7 @@ class SoftwareController():
         self.view.showMaximized()
 
 if __name__ == "__main__":
-
     app = QApplication(sys.argv)
-
     controller = SoftwareController()
     controller.show()
-
     sys.exit(app.exec())

@@ -27,19 +27,16 @@ pip install PyQt6, astropy, astroquery, scikit-image, pillow
 
 ## Utilisation
 
-Pour lancer l'application principale :
+Pour lancer l'application :
 
 ```bash
-python Application_1/SoftwareController.py
+python SoftwareController.py
 ```
 
-Pour ouvrir l'interface de téléchargement (prochainement intégrer à l'application principale) :
-
-```bash
-python qt_dl.py
-```
-
-
+Pour obtenir une image en couleur à partir d'images en niveaux de gris, il faut :
+- Importer un dossier contenant des images FITS à l'aide du menu 'Ouvrir un dossier'.
+- Associer les filtres au code RVB dans le sous-menu 'Conversion polychromatique (RVB)'.
+- Exporter l'image en couleur avec le menu 'Exporter', l'image se situe alors dans le dossier 'exports'.
 
 ## Remarques
 

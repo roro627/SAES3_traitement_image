@@ -8,6 +8,10 @@ from download_file import *
 
 from astropy.io import fits
 
+# -----------------------------------------------------------------------------
+# --- classe MainWindow
+# --- Fait par : COCQUEREL Alexis et LAMBERT Romain
+# -----------------------------------------------------------------------------
 
 class SearchThread(QThread):
     """

@@ -3,6 +3,11 @@ from astropy.coordinates import SkyCoord
 import astropy.units as units
 import os
 
+# -----------------------------------------------------------------------------
+# --- Fonctions de téléchargement de fichiers
+# --- Fait par : COCQUEREL Alexis et LAMBERT Romain
+# -----------------------------------------------------------------------------
+
 def filter_by_filter(observations, filter_value):
     """
     Filtre les observations en fonction du filtre sélectionné.

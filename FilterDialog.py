@@ -5,6 +5,7 @@ from PyQt6.QtGui import QIcon
 
 # -----------------------------------------------------------------------------
 # --- classe FilterDialog
+# --- Fait par : COCQUEREL Alexis et LAMBERT Romain
 # -----------------------------------------------------------------------------
 
 class FilterDialog(QDialog):
@@ -17,7 +18,7 @@ class FilterDialog(QDialog):
         self.current_directory = sys.path[0]
         self.parent_directory = os.path.dirname(self.current_directory)
         
-        self.setWindowIcon(QIcon(self.current_directory+"//icons//RGB_Circle.ico"))
+        self.setWindowIcon(QIcon(self.current_directory+"//icons//color_icon.ico"))
         self.setWindowTitle("Conversion polychromatique (RVB)")
         self.setMinimumSize(QSize(500, 50))
 
