@@ -35,7 +35,7 @@ python SoftwareController.py
 
 Pour obtenir une image en couleur à partir d'images en niveaux de gris, il faut :
 - Importer un dossier contenant des images FITS à l'aide du menu 'Ouvrir un dossier'.
-- Associer les filtres au code RVB dans le sous-menu 'Conversion polychromatique (RVB)'.
+- Associer les filtres au code RVB dans le menu 'Conversion polychromatique (RVB)'.
 - Exporter l'image en couleur avec le menu 'Exporter', l'image se situe alors dans le dossier 'exports'.
 
 ## Remarques
