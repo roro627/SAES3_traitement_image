@@ -8,17 +8,11 @@ from download_file import *
 
 from astropy.io import fits
 
-"""
-TODO:
-    - supprimer programme et mettre 3 comboboxes pour les filtres
-    - lors du dl crée un dossier avec le nom de l'objet et datetime (pour le rendre unqiue) puis dl dedans les fichiers
-"""
 
 class SearchThread(QThread):
     """
     Thread pour la recherche d'observations.
     """
-    observations_ready = pyqtSignal()
     celestial_objects_ready = pyqtSignal(list)
 
     def __init__(self, object_name, radius,main_window):
@@ -32,7 +26,6 @@ class SearchThread(QThread):
         
         observations, obs2 = itertools.tee(observations, 2)
         self.main_window.observations = observations
-        self.observations_ready.emit()
                 
         self.celestial_objects_ready.emit(get_celestial_objects(obs2))
 
@@ -202,7 +195,6 @@ class MainWindow(QWidget):
         self.animation_timer.start(500)
         # Démarrer le thread de recherche
         self.search_thread = SearchThread(object_name, radius, self)
-        self.search_thread.observations_ready.connect(self.on_observations_ready)
         self.search_thread.celestial_objects_ready.connect(self.on_celestial_objects_ready)
         self.search_thread.start()
 
@@ -213,19 +205,16 @@ class MainWindow(QWidget):
         self.search_button.setText(self.animation_texts[self.animation_index])
         self.animation_index = (self.animation_index + 1) % len(self.animation_texts)
 
-    def on_observations_ready(self):
-        """
-        Remettre à jour le texte de base et arrêter l'animation.
-        """
-        # Arrêter l'animation
-        self.animation_timer.stop()
-        self.search_button.setText("Rechercher")
-        self.search_button.setEnabled(True)
-
     def on_celestial_objects_ready(self, celestial_objects):
         """
         Quand les objets célestes sont prêts.
         """
+        
+        # Arrêter l'animation
+        self.animation_timer.stop()
+        self.search_button.setText("Rechercher")
+        self.search_button.setEnabled(True)
+        
         self.celestial_objects = celestial_objects
         
         if self.celestial_objects:

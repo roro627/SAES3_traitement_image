@@ -12,4 +12,4 @@ for filename in os.listdir(directory):
             # Afficher le nom des filtres
             for hdu in hdul:
                 if 'FILTER' in hdu.header:
-                    print(f"Fichier: {filename}, Filtre: {hdu.header['FILTER']}")
+                    print({str(hdu.header['FILTER'])})

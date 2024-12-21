@@ -105,6 +105,9 @@ def get_final_product(observations, ideal_Mo_size=50):
     # Extraire les obsid des observations
     obs_ids = [obs['obsid'] for obs in observations]
 
+    if not obs_ids:
+        return None
+
     # Obtenir les produits associés aux obsid filtrés
     products = Observations.get_product_list(obs_ids)
     
