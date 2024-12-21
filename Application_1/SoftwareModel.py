@@ -21,18 +21,34 @@ class SoftwareModel:
         self.ImageBody : list[np.ndarray] = []
         self.ImageExport : np.ndarray = []
 
-    def openImage(self) -> None :
+    def openImage(self) -> np.ndarray :
+        datas = []
         for imagePath in self.ImagePath :
-            with fits.open(imagePath) as hdul:
-                dataHeader = hdul[0].header
-                dataFilter = dataHeader['FILTER']
-                data = hdul[0].data
+            hdul = fits.open(imagePath)
 
-                data = np.nan_to_num(data)
+            dataHeader = hdul[0].header
+            dataFilter = dataHeader['FILTER']
+            data = hdul[0].data
 
-                self.setImageHead(dataHeader)
-                self.setImageFilter(dataFilter, data)
-                self.setImageBody(data)
+            self.setImageHead(dataHeader)
+            self.setImageFilter(dataFilter,data)
+            self.setImageBody(data)
+
+            data = fits.getdata(imagePath)
+
+            # Éliminer les valeurs aberrantes
+            data = np.clip(data, np.percentile(data, 1), np.percentile(data, 99))
+
+            # Normaliser les données
+            norm_data = 255 * (data - np.min(data)) / (np.max(data) - np.min(data))
+            norm_data = np.clip(norm_data, 0, 255).astype(np.uint8)
+
+            # Assurez-vous que les données sont contiguës
+            norm_data = np.ascontiguousarray(norm_data)
+
+            datas.append(norm_data)
+        
+        return datas
         
 
     def setImagePath(self,fpath) -> None :

@@ -41,12 +41,12 @@ class SoftwareController():
         self.model.ImageFilter = {}
         self.model.ImageBody = []
         self.view.tabWidget.clear()
+        self.view.tabWidget2.clear()
         self.view.filter.clearFilter()
 
         self.model.setImagePath(fpath)
-        self.model.openImage()
-        data = self.model.normalize_data(self.model.ImageBody[0])
-        self.view.image.setPixmap(data)
+        datas = self.model.openImage()
+        self.view.image.addImagesToTabs(datas, self.view.tabWidget2)
         self.view.updateInfoTable(self.model.ImageHead[0])
 
     def openFolder(self, fpath):
@@ -54,11 +54,14 @@ class SoftwareController():
         self.model.ImageFilter = {}
         self.model.ImageBody = []
         self.view.tabWidget.clear()
+        self.view.tabWidget2.clear()
+
         self.view.filter.clearFilter()
 
 
         self.model.setImagePath(fpath)
-        self.model.openImage()
+        datas = self.model.openImage()
+        self.view.image.addImagesToTabs(datas, self.view.tabWidget2)
 
         self.view.filter.updateFilter(self.model.ImageFilter)
 

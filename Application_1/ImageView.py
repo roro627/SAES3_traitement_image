@@ -20,29 +20,36 @@ class ImageView(QGraphicsView):
         self.scene.addText("Aucune image n'est actuellement ouverte.")
         self.setScene(self.scene)
 
-    def setPixmap(self, grayData :  np.ndarray):
-        """
-        Définit l'image pour la vue.
-        
-        Paramètres : fname (str) : Le nom du fichier de l'image à définir comme image de la vue.
-        Return : None
-        """
-        height, width = grayData.shape
-        bytesPerLine = width
+    def setPixmap(self, pixmap):
+        scene = QGraphicsScene()
+        scene.addPixmap(pixmap)
+        self.setScene(scene)
 
-        self.scene.clear()
+    def addImagesToTabs(self, datas, tabname: QTabWidget):
+        for data in datas:
+            height, width = data.shape
+            bytes_per_line = data.strides[0]
+            image = QImage(data.data, width, height, bytes_per_line, QImage.Format.Format_Grayscale8)
 
-        # Normalisation
-        grayData[grayData > 1.0] = 1.0
-        grayData[grayData < 0.0] = 0.0
+            # Convertir QImage en QPixmap
+            pixmap = QPixmap.fromImage(image)
+            pixmap = pixmap.scaled(int(width), int(height), Qt.AspectRatioMode.KeepAspectRatio)
 
-        # Convertir en QImage
-        qImg : QImage = QImage((grayData * 255).astype(np.uint8).data, width, height, bytesPerLine, QImage.Format.Format_Grayscale8)
-        self.pixmap : QPixmap = QPixmap.fromImage(qImg)
-        self.pixmap = self.pixmap.scaled(int(self.width()), int(self.height()), Qt.AspectRatioMode.KeepAspectRatio)
-        image_item = QGraphicsPixmapItem(self.pixmap)
+            # Créer un widget pour l'onglet
+            tabWidget = QWidget()
+            tabLayout = QVBoxLayout()
+            tabWidget.setLayout(tabLayout)
 
-        self.scene.addItem(image_item)
+            # Créer une nouvelle instance de QGraphicsView
+            graphicsView = ImageView()
+            graphicsView.setPixmap(pixmap)
+
+            # Ajouter la vue au layout de l'onglet
+            tabLayout.addWidget(graphicsView)
+
+            # Ajouter l'onglet avec le widget
+            tabname.addTab(tabWidget, 'FITS Header')
+
 
     def setColorPixmap(self, data):
         height, width , channel  = data.shape   
@@ -59,6 +66,17 @@ class ImageView(QGraphicsView):
 
         self.scene.addItem(image_item)
 
+
+    def wheelEvent(self, event):
+        zoom_in = 1.15
+        zoom_out = 0.85
+
+        if event.angleDelta().y() > 0:
+            self.scale(zoom_in, zoom_in)
+        else:
+            self.scale(zoom_out, zoom_out)
+
+        
 
     @staticmethod
     def emptyImageGrayData()-> np.ndarray: return np.ones((90,160))*(220/255) 

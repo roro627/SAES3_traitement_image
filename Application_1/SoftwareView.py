@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import *
 from PyQt6.QtCore import Qt
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QGuiApplication
 
 from ImageView import ImageView
 from FilterDialog import FilterDialog
@@ -43,10 +44,12 @@ class SoftwareView(QMainWindow):
         # Layouts
         layout_tools = QHBoxLayout()
         tab1_layout = QVBoxLayout()
+        tab2_layout = QVBoxLayout()
 
         # Widgets
         self.image = ImageView()
         self.tabWidget = QTabWidget()
+        self.tabWidget2 = QTabWidget()
         self.filter = FilterDialog()
 
         self.table_widget = QTableWidget()
@@ -54,8 +57,12 @@ class SoftwareView(QMainWindow):
         self.table_widget.setHorizontalHeaderLabels(["Clé", "Valeur"])
         self.table_widget.verticalHeader().setVisible(False)
         header = self.table_widget.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         header.setStretchLastSection(True)
+
+        self.tab2 = QWidget()
+        self.tab2.setLayout(tab2_layout)
+        tab2_layout.addWidget(self.image)
+        self.tabWidget2.addTab(self.tab2,'Pas de fichier(s)')
 
         self.tab1 = QWidget()
         self.tab1.setLayout(tab1_layout)
@@ -63,7 +70,7 @@ class SoftwareView(QMainWindow):
         self.tabWidget.addTab(self.tab1,'Pas de fichier(s)')
 
         # Ajout de widgets dans le layout layout_tools
-        layout_tools.addWidget(self.image)
+        layout_tools.addWidget(self.tabWidget2)
         layout_tools.addWidget(self.tabWidget, alignment=Qt.AlignmentFlag.AlignRight)
 
         mainlayout.addLayout(layout_tools)
