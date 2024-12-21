@@ -56,7 +56,7 @@ class MainWindow(QWidget):
 
         self.setWindowTitle("Downloader App")
         self.setMinimumSize(QSize(500, 50))
-        self.setWindowIcon(QIcon("icon_downloader_app.ico"))
+        self.setWindowIcon(QIcon("icons\icon_downloader_app.ico"))
         
         self.value_to_add = 35
         self.current_height = self.value_to_add
