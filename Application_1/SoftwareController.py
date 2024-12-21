@@ -46,7 +46,7 @@ class SoftwareController():
 
         self.model.setImagePath(fpath)
         datas = self.model.openImage()
-        self.view.image.addImagesToTabs(datas, self.view.tabWidget2)
+        self.view.image.addImagesToTabWidget(datas, self.view.tabWidget2)
         self.view.updateInfoTable(self.model.ImageHead[0])
 
     def openFolder(self, fpath):
@@ -61,7 +61,7 @@ class SoftwareController():
 
         self.model.setImagePath(fpath)
         datas = self.model.openImage()
-        self.view.image.addImagesToTabs(datas, self.view.tabWidget2)
+        self.view.image.addImagesToTabWidget(datas, self.view.tabWidget2)
 
         self.view.filter.updateFilter(self.model.ImageFilter)
 

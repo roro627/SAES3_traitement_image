@@ -41,9 +41,9 @@ class ImageView(QGraphicsView):
         self.setScene(self.scene)
 
         # Configurer le zoom avec la molette de la souris
-        self.setMouseTracking(True)
-        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
-        self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        # self.setMouseTracking(True)
+        # self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        # self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
 
     def wheelEvent(self, event):
         zoom_in = 1.15

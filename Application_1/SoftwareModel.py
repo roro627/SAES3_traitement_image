@@ -19,7 +19,7 @@ class SoftwareModel:
         self.ImageHead : list[fits.header.Header]  = []
         self.ImageFilter : dict = {}
         self.ImageBody : list[np.ndarray] = []
-        self.ImageExport : np.ndarray = []
+        self.ImageExport : np.ndarray = None
 
     def openImage(self) -> np.ndarray :
         datas = []

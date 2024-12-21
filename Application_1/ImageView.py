@@ -20,35 +20,50 @@ class ImageView(QGraphicsView):
         self.scene.addText("Aucune image n'est actuellement ouverte.")
         self.setScene(self.scene)
 
-    def setPixmap(self, pixmap):
-        scene = QGraphicsScene()
-        scene.addPixmap(pixmap)
-        self.setScene(scene)
+    def setPixmap(self, grayData: np.ndarray):
+        """
+        Définit l'image pour la vue.
+        """
+        height, width = grayData.shape
+        bytesPerLine = grayData.strides[0]
 
-    def addImagesToTabs(self, datas, tabname: QTabWidget):
-        for data in datas:
-            height, width = data.shape
-            bytes_per_line = data.strides[0]
-            image = QImage(data.data, width, height, bytes_per_line, QImage.Format.Format_Grayscale8)
+        self.scene.clear()
 
-            # Convertir QImage en QPixmap
-            pixmap = QPixmap.fromImage(image)
-            pixmap = pixmap.scaled(int(width), int(height), Qt.AspectRatioMode.KeepAspectRatio)
+        # Convertir en QImage
+        qImg: QImage = QImage(grayData.data, width, height, bytesPerLine, QImage.Format.Format_Grayscale8)
+        self.pixmap: QPixmap = QPixmap.fromImage(qImg)
+        
+        self.pixmap = self.pixmap.scaled(int(self.pixmap.width()), int(self.pixmap.height()), Qt.AspectRatioMode.KeepAspectRatio)
+        #self.pixmap = self.pixmap.scaled(int(self.width()), int(self.height()), Qt.AspectRatioMode.KeepAspectRatio)
+        image_item = QGraphicsPixmapItem(self.pixmap)
 
-            # Créer un widget pour l'onglet
-            tabWidget = QWidget()
-            tabLayout = QVBoxLayout()
-            tabWidget.setLayout(tabLayout)
+        self.scene.addItem(image_item)
 
-            # Créer une nouvelle instance de QGraphicsView
-            graphicsView = ImageView()
-            graphicsView.setPixmap(pixmap)
+    def addImagesToTabWidget(self, images: list[np.ndarray], tabWidget: QTabWidget):
+        """
+        Ajoute une liste d'images dans un QTabWidget, chaque image dans un nouvel onglet.
 
-            # Ajouter la vue au layout de l'onglet
-            tabLayout.addWidget(graphicsView)
+        Paramètres:
+            images (list[np.ndarray]): Liste de tableaux numpy représentant les images en niveaux de gris.
+            tabWidget (QTabWidget): Le QTabWidget où les images seront ajoutées.
 
-            # Ajouter l'onglet avec le widget
-            tabname.addTab(tabWidget, 'FITS Header')
+        Retourne:
+            None
+        """
+        for i, image in enumerate(images):
+            # Créer un nouvel onglet contenant un ImageViewer
+            image_viewer = ImageView()
+            image_viewer.setPixmap(image)
+
+            # Créer un widget conteneur pour l'onglet
+            tabContainer = QWidget()
+            layout = QVBoxLayout()
+            layout.addWidget(image_viewer)
+            tabContainer.setLayout(layout)
+
+            # Ajouter l'onglet au QTabWidget
+            tabWidget.addTab(tabContainer, f"Image {i + 1}")
+
 
 
     def setColorPixmap(self, data):
